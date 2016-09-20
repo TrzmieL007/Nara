@@ -1,0 +1,32 @@
+{
+  "name": "nara",
+  "productName": "DoIT_ProfilerStats",
+  "version": "0.0.1",
+  "description": "Do-IT Profiler Statistic engine for Desktop using Electron and Shiny",
+  "main": "app/main.js",
+  "scripts": {
+    "start": "electron .",
+    "start-prod": "PROD=1 electron .",
+    "postinstall": "cd app && npm install",
+    "grunt-pack": "grunt electron",
+    "grunt-build": "grunt create-windows-installer",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "shiny"
+  ],
+  "author": "Do-IT Solutions",
+  "license": "ISC",
+  "ignore": "(^/node_modules)|(^/build)|(^/dist$)|(^/package(?!\\.json))|(\\.idea$)|(\\.vscode$)|(Thumbs\\.db)|(\\.DS_Store)|(\\.Trashes)|(Gruntfile\\.js)",
+  "directories": {
+    "packages": "./dist",
+    "installers": "./dist/install"
+  },
+  "devDependencies": {
+    "electron-prebuilt": "^1.4.0",
+    "grunt": "^1.0.1",
+    "grunt-contrib-uglify": "^2.0.0",
+    "grunt-electron": "^5.0.0",
+    "grunt-electron-installer": "^2.1.0"
+  }
+}
