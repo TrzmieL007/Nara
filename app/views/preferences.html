@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Preferences Panel</title>
+    <script type="text/javascript">
+        var prefs = {};
+        function initialize(params){
+            console.log(params);
+            var content = document.getElementById('content');
+            params.forEach(function(option){
+                var panel = content.appendChild(document.createElement('div'));
+                panel.classList.add(option.type.toLowerCase());
+                prefs[option.name] = { fields : [], type : option.type.toLowerCase() };
+                var p = prefs[option.name].fields;
+                switch(option.type.toLowerCase()){
+                    case 'checkbox':
+                        var chkbox = panel.appendChild(document.createElement('input'));
+                        chkbox.type = option.type;
+                        if(typeof option.value !== 'undefined'){
+                            chkbox.checked = option.value ? 'checked' : null;
+                        }else if(option.default){
+                            chkbox.checked = 'checked';
+                        }
+                        var label = panel.appendChild(document.createElement('label'));
+                        label.innerHTML = option.label;
+                        label.onclick = function(){
+                            chkbox.checked = !chkbox.checked;
+                        };
+                        p.push(chkbox);
+                        break;
+                    case 'radio':
+                        panel.appendChild(document.createElement('hr'));
+                        panel.appendChild(document.createElement('strong')).innerHTML = option.label;
+                        panel.appendChild(document.createElement('br'));
+                        option.options.forEach(function(e,index){
+                            var radio = panel.appendChild(document.createElement('input'));
+                            radio.type = 'radio';
+                            radio.value = index;
+                            radio.name = option.name;
+                            if(typeof option.value !== 'undefined'){
+                                if(index == option.value) radio.checked = true;
+                            }else if(option.default == index){
+                                radio.checked = true;
+                            }
+                            var label = panel.appendChild(document.createElement('label'));
+                            label.innerHTML = e;
+                            label.onclick = function(){
+                                if(!radio.checked) radio.checked = true;
+                            };
+                            panel.appendChild(document.createElement('br'));
+                            p.push(radio);
+                        });
+                        panel.appendChild(document.createElement('hr'));
+                        break;
+                    case "select":
+                        panel.appendChild(document.createElement('strong')).innerHTML = option.label;
+                        panel.appendChild(document.createElement('br'));
+                        var select = panel.appendChild(document.createElement('select'));
+                        option.options.forEach(function(o,index){
+                            var opt = select.appendChild(document.createElement('option'));
+                            opt.value = index;
+                            opt.innerHTML = o;
+                            if(typeof option.value !== 'undefined'){
+                                if(index == option.value) opt.selected = true;
+                            }else if(option.default == index){
+                                opt.selected = true;
+                            }
+                        });
+                        p.push(select);
+                        break;
+                    default:
+                        content.removeChild(panel);
+                        delete prefs[option.name];
+                }
+            });
+        }
+        function savePrefs(){
+            var ipc = require('electron').ipcRenderer;
+            ipc.send('savePreferences',serializePrefs());
+            ipc.on('errorSavingPrefs',function(ev,error){
+                console.error(error);
+            });
+            ipc.on('successSavingPrefs',function(ev){
+                console.info('preferences saved with success :)');
+                window.close();
+            });
+        }
+        function serializePrefs(){
+            return Object.keys(prefs).reduce(function(p,key){
+                switch(prefs[key].type){
+                    case 'checkbox':
+                        p[key] = prefs[key].fields[0].checked;
+                        break;
+                    case 'radio':
+                        prefs[key].fields.some(function(field,index){
+                            if(field.checked){
+                                p[key] = field.value;
+                                return true;
+                            }
+                            return false;
+                        });
+                        break;
+                    case 'select':
+                        p[key] = prefs[key].fields[0].value;
+                        break;
+                    default: return p;
+                }
+                return p;
+            },{});
+        }
+        function restoreDefaultsPrefs(){
+            var ipc = require('electron').ipcRenderer;
+            ipc.send('restoreDefaultPreferences');
+            ipc.on('errorRestoringPrefs',function(ev,error){
+                console.error(error);
+            });
+            ipc.on('successRestoringPrefs',function(ev){
+                console.info('preferences restored with success :)');
+                window.close();
+            });
+        }
+    </script>
+    <style type="text/css">
+        body {
+            padding:0;
+            margin: 0;
+        }
+        .wrapper {
+            background: #f1f1f1;
+            border: 1px solid #666666;
+            padding: 8px;
+            border-radius: 8px;
+            position: fixed;
+            left: 0;
+            right: 0;
+            top: 0;
+            bottom: 0;
+        }
+        h1 {
+            margin-top: 0;
+        }
+        .buttons {
+            position: fixed;
+            bottom: 12px;
+            right: 12px;
+        }
+        button {
+            border: 1px solid #666666;
+            border-radius: 4px;
+            background: #cbcbcb;
+            line-height: 1.6em;
+        }
+        #content {
+            overflow: auto;
+            position: absolute;
+            bottom: 16px;
+            top: 42px;
+            left: 8px;
+            right: 8px;
+        }
+        .checkbox {
+            line-height: 1.5em;
+            margin: 2px 0;
+        }
+        .checkbox input[type="checkbox"], .radio input[type="radio"] {
+            margin-right: 4px;
+            vertical-align: -1px;
+        }
+        .select {
+            margin: 2px 0;
+        }
+        strong {
+            font-size: 1.2em;
+            line-height: 1.4em;
+        }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <h1>Preferences Panel</h1>
+        <div id="content"></div>
+        <span class="buttons">
+            <button onClick="savePrefs()">Save</button>
+            <button onClick="restoreDefaultsPrefs()">Restore defaults</button>
+            <button onClick="window.close()">Close</button>
+        </span>
+    </div>
+</body>
+</html>

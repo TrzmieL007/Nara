@@ -264,7 +264,8 @@ app.on('ready', function(){
         {},
         config.browserWindowConfig,
         {
-            icon: path.resolve(__dirname, "icon.png")
+            icon: path.resolve(__dirname, "icon.png"),
+            show: false
         }
     ));
 
@@ -283,6 +284,7 @@ app.on('ready', function(){
         // when you should delete the corresponding element.
         mainWindow = null;
     });
+    mainWindow.once('ready-to-show', function(){ mainWindow.show(); });
 
     var autoUpdater = electron.autoUpdater;
 
@@ -307,6 +309,25 @@ app.on('ready', function(){
         }
     });
 
+    ipc.on('savePreferences',function(event,prefs){
+        fs.writeFile('properties.json',JSON.stringify(prefs,null,4),'utf8',function(error){
+            if(error){
+                event.sender.send('errorSavingPrefs',error);
+            }else{
+                event.sender.send('successSavingPrefs');
+            }
+        });
+    });
+    ipc.on('restoreDefaultPreferences',function(event){
+        fs.unlink('properties.json',function(error){
+            if(error){
+                event.sender.send('errorRestoringPrefs',error);
+            }else{
+                event.sender.send('successRestoringPrefs');
+            }
+        });
+    });
+
     autoUpdater.on('error',function(error){
         errorLogging("UPDATING ERROR: "+error,"updateErrors.log");
     });
@@ -324,17 +345,97 @@ app.on('ready', function(){
     menu.append(new MenuItem({
         click: function(){
             var qWindow = new BrowserWindow({
-                    icon: path.resolve(__dirname, "icon.png"),
-                    minWidth: 303,
-                    minHeight: 128,
-                    width: 303,
-                    title: "Update"
-                }
-            );
+                icon: path.resolve(__dirname, "icon.png"),
+                width: 512,
+                height: 256,
+                center: true,
+                title: "Update",
+                show: false,
+                parent: mainWindow,
+                modal: true,
+                frame: false
+            });
             qWindow.loadURL("file://" + __dirname + "/views/update.html");
+            qWindow.once('ready-to-show', function(){
+                qWindow.show();
+                var params = {
+                    p : process.platform,
+                    v : require('../package.json').version,
+                    a : process.arch
+                };
+                qWindow.webContents.executeJavaScript("getUpdate("+JSON.stringify(params)+");");
+            });
             qWindow.on('closed', function(){ qWindow = null; });
         },
         label: 'Update'
+    }));
+    menu.items[0].submenu.insert(0,new MenuItem({
+        label : "Preferences",
+        click : function() {
+            var mainBounds = mainWindow.getBounds();
+            var prefWindow = new BrowserWindow({
+                width: mainBounds.width - 64,
+                height: mainBounds.height - 96,
+                x: mainBounds.x + 32,
+                y: mainBounds.y + 64,
+                icon: path.resolve(__dirname, "icon.png"),
+                center: true,
+                title: "Preferences",
+                show: false,
+                parent: mainWindow,
+                modal: true,
+                frame: false
+            });
+            prefWindow.loadURL("file://" + __dirname + "/views/preferences.html");
+            prefWindow.once('ready-to-show', function () {
+                prefWindow.show();
+                var params = [
+                    {
+                        label: "Auto update",
+                        name: "autoUpdate",
+                        type: "radio",
+                        options: [
+                            "<b>Automatic update</b> - check for update on app start, and update if available,",
+                            "<b>Semi automatic update</b> - check for update on app start, but let me chose if I want to update,",
+                            "<b>Manual</b> - do not check for updates on app start."
+                        ],
+                        default: 2
+                    },
+                    {
+                        label: "Sample option with checkbox",
+                        name: "chkbox",
+                        type: "checkbox",
+                        default: false
+                    },
+                    {
+                        label: "Sample option with selectbox",
+                        name: "selectOpt",
+                        type: "select",
+                        options: [
+                            "Option 1",
+                            "Option 2",
+                            "Option 3",
+                            "Option 4"
+                        ],
+                        default: 2
+                    }
+                ];
+                try{
+                    var values = JSON.parse(fs.readFileSync('properties.json','utf8'));
+                    params.map(function(e){
+                        if(values.hasOwnProperty(e.name)) e.value = values[e.name];
+                        return e;
+                    });
+                }catch(e){
+                    console.log(e);
+                }
+                prefWindow.webContents.executeJavaScript("initialize(" + JSON.stringify(params) + ");");
+            });
+            prefWindow.on('closed', function () {
+                prefWindow = null;
+            });
+            prefWindow.webContents.openDevTools({detach:true});
+        }
     }));
     Menu.setApplicationMenu(menu);
 });

@@ -3,12 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <title>Update</title>
-    <script src="../js/jquery-3.1.0.min.js"></script>
+    <script type="text/javascript" src="../js/ajax.js"></script>
+    <style type="text/css">
+        body {
+            background: transparent;
+            margin: 0;
+            padding: 0;
+        }
+        button {
+            border: 1px solid #666666;
+            border-radius: 8px;
+            background: #cbcbcb;
+            line-height: 1.6em;
+            margin: .5em;
+        }
+        h1 {
+            font-size: 2em;
+            text-transform: capitalize;
+            padding-top: 0;
+        }
+        h2 {
+            font-size: 1em;
+        }
+        .content {
+            border: 1px solid #666666;
+            background: #f1f1f1;
+            padding: 0.5em;
+        }
+        .content span {
+            width: 100%;
+            display: block;
+            text-align: right;
+        }
+    </style>
 </head>
 <body>
-<div id="content"></div>
-<script>
-    $('#')
+    <div class="content">
+        <h1 id="title">Checking for update</h1>
+        <h2 id="subtitle">...</h2>
+        <span>
+            <button onClick="window.close()">close</button>
+        </span>
+    </div>
+<script type="text/javascript">
+    function getUpdate(params){
+        var title = document.getElementById('title');
+        var subtitle = document.getElementById('subtitle');
+        Ajax.get(require('../package.json').updateServerHost+"/updates/latest",
+                params,
+                null,
+                null,
+                function(response,status,resdyState){
+                    if(status == 200){
+                        // console.log('updateAvailable');
+                        title.innerHTML = "An update is available";
+                        subtitle.innerHTML = "Do you want to download an update?<br/>The application will download the update, quit and install the update.<br/>";
+                        var buttons = subtitle.appendChild(document.createElement('center'));
+                        var yes = buttons.appendChild(document.createElement('button'));
+                        var no = buttons.appendChild(document.createElement('button'));
+                        yes.onclick = function(){
+                            var ipc = require('electron').ipcRenderer;
+                            ipc.send('updateApp',JSON.parse(response).url);
+                            ipc.on('askingForUpdate',function(event){
+                                window.close();
+                            });
+                        };
+                        yes.innerText = "YES";
+                        no.onclick = function(){
+                            window.close();
+                        };
+                        no.innerText = "NO";
+                    }else if(status == 204){
+                        // console.log('noUpdateAvailable');
+                        title.innerHTML = "Version up to date";
+                        subtitle.innerHTML = "This application is app to date. There is no need to download updates.";
+                    }else if(status == 0 && readyState == 0){
+                        title.innerHTML = "Connection timeout exceeded.";
+                        subtitle.innerHTML = "Our server may be down. Try again later.";
+                    }else{
+                        title.innerHTML = "Error.";
+                        subtitle.innerHTML = "An error occured. Please, try again later.";
+                    }
+                });
+    }
 </script>
 </body>
 </html>
