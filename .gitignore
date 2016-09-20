@@ -1,0 +1,20 @@
+# Dependencies
+node_modules
+
+# Windows stuff
+Thumbs.db
+
+# Mac OS X stuff
+.DS_Store
+.Trashes
+
+# Build
+dist
+packages
+builds
+
+# Others
+.idea
+.vscode
+npm-debug.log
+logs
