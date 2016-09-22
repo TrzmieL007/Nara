@@ -11,8 +11,7 @@
             params.forEach(function(option){
                 var panel = content.appendChild(document.createElement('div'));
                 panel.classList.add(option.type.toLowerCase());
-                prefs[option.name] = { fields : [], type : option.type.toLowerCase() };
-                var p = prefs[option.name].fields;
+                var p = prefs[option.name] = { fields : [], type : option.type.toLowerCase(), default : option.default };
                 switch(option.type.toLowerCase()){
                     case 'checkbox':
                         var chkbox = panel.appendChild(document.createElement('input'));
@@ -27,7 +26,7 @@
                         label.onclick = function(){
                             chkbox.checked = !chkbox.checked;
                         };
-                        p.push(chkbox);
+                        p.fields.push(chkbox);
                         break;
                     case 'radio':
                         panel.appendChild(document.createElement('hr'));
@@ -49,7 +48,7 @@
                                 if(!radio.checked) radio.checked = true;
                             };
                             panel.appendChild(document.createElement('br'));
-                            p.push(radio);
+                            p.fields.push(radio);
                         });
                         panel.appendChild(document.createElement('hr'));
                         break;
@@ -57,6 +56,13 @@
                         panel.appendChild(document.createElement('strong')).innerHTML = option.label;
                         panel.appendChild(document.createElement('br'));
                         var select = panel.appendChild(document.createElement('select'));
+                        var firstOpt = select.appendChild(document.createElement('option'));
+                        firstOpt.value = null;
+                        firstOpt.disabled = true;
+                        firstOpt.innerHTML = '--- chose one ---';
+                        if(typeof option.value === 'undefined' && !option.default){
+                            firstOpt.selected = true;
+                        }
                         option.options.forEach(function(o,index){
                             var opt = select.appendChild(document.createElement('option'));
                             opt.value = index;
@@ -67,7 +73,7 @@
                                 opt.selected = true;
                             }
                         });
-                        p.push(select);
+                        p.fields.push(select);
                         break;
                     default:
                         content.removeChild(panel);
@@ -117,7 +123,25 @@
             });
             ipc.on('successRestoringPrefs',function(ev){
                 console.info('preferences restored with success :)');
-                window.close();
+                //window.close();
+                Object.keys(prefs).forEach(function(key){
+                    var pref = prefs[key];
+                    switch(pref.type){
+                        case 'checkbox':
+                            pref.fields[0].checked = pref.default ? true : false;
+                            break;
+                        case 'radio':
+                            pref.fields.some(function(f){
+                                if(f.value == pref.default){
+                                    return f.checked = true;
+                                }
+                                return f.checked = false;
+                            });
+                            break;
+                        case 'select':
+                            pref.fields[0].value = pref.default || null;
+                    }
+                });
             });
         }
     </script>
@@ -169,6 +193,9 @@
         }
         .select {
             margin: 2px 0;
+        }
+        .select select option {
+            color: #000000;
         }
         strong {
             font-size: 1.2em;

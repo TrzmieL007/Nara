@@ -18,3 +18,5 @@ builds
 .vscode
 npm-debug.log
 logs
+app/R/
+!app/R/R-3.3.1-win.exe

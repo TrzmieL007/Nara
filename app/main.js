@@ -111,6 +111,33 @@ var handleStartupEvent = function() {
             });
         });
     };
+    var installRAttempt = function installRAttempt() {
+        var installR = function () {
+            var rPath = path.resolve(__dirname, 'R');
+            var arguments = ['/VERYSILENT', '/DIR="' + rPath + '"', '/COMPONENTS="main"'];//,' + (process.arch.match(/64/) ? 'x64' : 'i386') + '"'];
+            errorLogging('installation of R "' + path.resolve(rPath, 'R-3.3.1-win.exe') + ' ' + arguments.join(' ') + '"', 'r.txt');
+            var installR = spawn(path.resolve(rPath, 'R-3.3.1-win.exe')+' '+arguments.join(' '),[], {detached: true, stdio: 'ignore'});
+
+            installR.on('close', function (code) {
+                errorLogging('installation of R returned code: ' + code, 'r.txt');
+                fs.writeFile(path.join(rPath,'rPath'),path.resolve(rPath,'bin','r'),'utf8',function(){});
+            });
+        };
+        try {
+            var chkR = spawn('r', ["/?"]);
+            chkR.on('close', function (code) {
+                errorLogging('r /? returned code: ' + code,'r.txt');
+                if(code != 0){
+                    fs.readdir(path.resolve(__dirname, 'R'),function(err,files){
+                        if(err || files.length < 2) installR();
+                    });
+                }
+            });
+        }catch (e) {
+            errorLogging("Excellent! No R detected\n"+JSON.stringify(e,null,4),'r.txt');
+            installR();
+        }
+    };
     switch(squirrelCommand){
         case '--squirrel-install':
             // Optionally do things such as:
@@ -119,26 +146,8 @@ var handleStartupEvent = function() {
             // - Add your .exe to the PATH
             // - Write to the registry for things like file associations and
             //   explorer context menus
-            createShortcuts(function() {
-                //saveDataLoc(path.join(path.dirname(updateDotExe),'data.txt'));
-                try {
-                    var checkForR = spawn('r', ["/?"]);
-                    errorLogging('r /?','r.txt');
-                    checkForR.stdout.on('data', function (data) {
-                        errorLogging('r /? returned stdout: ' + data,'r.txt');
-                    });
-                    checkForR.stderr.on('data', function (data) {
-                        errorLogging('r /? returned stderr: ' + data,'r.txt');
-                    });
-                    checkForR.on('close', function (code) {
-                        errorLogging('r /? returned code: ' + code,'r.txt');
-                        app.quit();
-                    });
-                }catch (e) {
-                    errorLogging("Excellent! No R detected\n"+JSON.stringify(e,null,4),'r.txt');
-                    app.quit();
-                }
-            });
+            installRAttempt();
+            createShortcuts();
             return true;
         case '--squirrel-updated':
             // After update is done
@@ -203,24 +212,9 @@ var handleStartupEvent = function() {
             // --squirrel-updated
             return true;
         case '--squirrel-firstrun':
-            errorLogging('First run action');
-            try {
-                var checkForR = spawn('r', ["/?"]);
-                errorLogging('firstrun r /?','r.txt');
-                checkForR.stdout.on('data', function (data) {
-                    errorLogging('firstrun r /? returned stdout: ' + data,'r.txt');
-                });
-                checkForR.stderr.on('data', function (data) {
-                    errorLogging('firstrun r /? returned stderr: ' + data,'r.txt');
-                });
-                checkForR.on('close', function (code) {
-                    errorLogging('firstrun r /? returned code: ' + code,'r.txt');
-                    app.quit();
-                });
-            }catch (e) {
-                errorLogging("firstrun Excellent! No R detected\n"+JSON.stringify(e,null,4),'r.txt');
-                app.quit();
-            }
+            errorLogging('First run action started');
+            installRAttempt();
+            errorLogging('First run action finished');
             return false;
     }
 };
@@ -228,6 +222,8 @@ var handleStartupEvent = function() {
 if(handleStartupEvent()){
     return;
 }
+
+var Rprocess = spawn(path.join(__dirname,'R','bin','Rscript.exe'),[]);
 
 var BrowserWindow = electron.BrowserWindow;
 var ipc = electron.ipcMain;
@@ -341,7 +337,10 @@ app.on('ready', function(){
 
     var Menu = electron.Menu;
     var MenuItem = electron.MenuItem;
-    var menu = Menu.getApplicationMenu();
+    var menu = Menu.getApplicationMenu() || Menu.buildFromTemplate([{
+            label: 'File',
+            submenu: [{ role: 'quit' }]
+        }]);
     menu.append(new MenuItem({
         click: function(){
             var qWindow = new BrowserWindow({
@@ -427,14 +426,13 @@ app.on('ready', function(){
                         return e;
                     });
                 }catch(e){
-                    console.log(e);
+                    //console.log(e);
                 }
                 prefWindow.webContents.executeJavaScript("initialize(" + JSON.stringify(params) + ");");
             });
             prefWindow.on('closed', function () {
                 prefWindow = null;
             });
-            prefWindow.webContents.openDevTools({detach:true});
         }
     }));
     Menu.setApplicationMenu(menu);
