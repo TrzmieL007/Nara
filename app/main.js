@@ -223,7 +223,18 @@ if(handleStartupEvent()){
     return;
 }
 
-var Rprocess = spawn(path.join(__dirname,'R','bin','Rscript.exe'),[]);
+var Rprocess = require('child_process').spawn(path.join(__dirname,'R','bin','R.exe'),['--vanilla']);
+Rprocess.stdin.setEncoding('utf-8');
+Rprocess.stdout.on('data',function(data){
+    console.log('R: ',data.toString());
+});
+Rprocess.stderr.on('data',function(data){
+    console.log('(error) R: ',data.toString());
+});
+Rprocess.on('close',function(code){
+    console.log('R ended with code: '+code);
+});
+var IanApp = path.resolve(__dirname,'R','IanApp');
 
 var BrowserWindow = electron.BrowserWindow;
 var ipc = electron.ipcMain;
@@ -268,6 +279,33 @@ app.on('ready', function(){
     // and load the index.html of the app.
     mainWindow.loadURL('http://localhost:8888/');
 
+    var shinyServer = require('net').createServer();
+    var port = 6111;
+    var checkThePort = function checkThePort(){
+        shinyServer.listen(port,function(err){
+            if(!err){
+                shinyServer.once('close', function () {
+                    console.log('http://localhost:'+port+'/');
+                    var toWrite = "shiny::runApp(\""+IanApp.replace(new RegExp("([^\\"+path.sep+"]+)(\\"+path.sep+")","g"),"$1"+path.sep+"$2")+"\",port="+port+")\n";
+                    console.log(toWrite);
+                    Rprocess.stdin.write(toWrite);
+                    mainWindow.loadURL('http://localhost:'+port+'/');
+                });
+                shinyServer.close();
+            }
+        });
+        shinyServer.on('error',function(err){
+            if(err.code == 'EADDRINUSE'){
+                console.log('Address in use, retrying...');
+                shinyServer.once('close', function () {
+                    ++port;
+                    checkThePort();
+                });
+                shinyServer.close();
+            }
+        });
+    };
+
     if(config.dev){
         // Open the devtools.
         mainWindow.webContents.openDevTools({ detach : true });
@@ -279,8 +317,12 @@ app.on('ready', function(){
         // in an array if your app supports multi windows, this is the time
         // when you should delete the corresponding element.
         mainWindow = null;
+        Rprocess.stdin.write("q()\n");
     });
-    mainWindow.once('ready-to-show', function(){ mainWindow.show(); });
+    mainWindow.once('ready-to-show', function(){
+        mainWindow.show();
+        checkThePort();
+    });
 
     var autoUpdater = electron.autoUpdater;
 
