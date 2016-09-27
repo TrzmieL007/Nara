@@ -1,0 +1,46 @@
+# rvg 1.0
+
+* adapt code to xml2 1.0 (use xml_find_first instead of deprecated xml_find_one)
+
+# rvg 0.9
+
+## New features
+
+* new device driver for Microsoft Excel documents
+* add function write_xlsx
+
+## Bug fixes
+
+* make cliping region id unique in dsvg
+
+# rvg 0.8
+
+## Bug fixes
+
+* fix rectangle clipping
+* stop wrapping text in DrawingML devices
+
+# rvg 0.7
+
+## New features
+
+* implementation of clipping (algorithms by Francois Brunetti).
+* new function set_attr to set attributes to graphical elements
+  without dependency to jquery nor bootstrap (suggested by
+  Bob Rudis).
+
+# rvg 0.6
+
+## Bug fixes
+
+* plot size was truncated to integers
+
+* lines with opacity were not displayed
+
+## New features
+
+* grid support for interactive points,
+  polygons, polylines, rectangles,
+  segments and text
+
+

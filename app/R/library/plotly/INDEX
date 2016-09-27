@@ -1,0 +1,40 @@
+add_trace               Add a trace to a plotly visualization
+as.widget               Convert a plotly object to an htmlwidget object
+bbox                    Estimate bounding box of a rotated string
+config                  Set the default configuration for plotly
+embed_notebook          Embed a plotly figure as an iframe into a
+                        IPython Notebook
+event_data              Access plotly user input event data in shiny
+geom2trace              Convert a "basic" geoms to a plotly.js trace.
+get_figure              Request a figure object
+get_plot                Obtain underlying data of plotly object
+gg2list                 Convert a ggplot to a list.
+ggplotly                Create plotly graphs using ggplot2 syntax
+hobbs                   Hobbs data
+knit_print.figure       Embed a plotly figure as an iframe in a knitr
+                        doc
+knit_print.plotly_built
+                        Print a 'built' plotly object in a knitr doc
+knit_print.plotly_hash
+                        Print a plotly object in a knitr doc
+last_plot               Retrive and create the last plotly (or ggplot).
+layout                  Add and/or modify layout of a plotly
+mic                     Mic data
+offline                 Plotly Offline
+plot_ly                 Initiate a plotly visualization
+plotly                  Main interface to plotly
+plotly-shiny            Shiny bindings for plotly
+plotly_IMAGE            Create/Modify plotly images
+plotly_POST             Create/Modify plotly graphs
+plotly_build            Create a 'plotly_built' object
+plotly_empty            Create a complete empty plotly graph.
+print.figure            Print a plotly figure object
+print.plotly_built      Print a 'built' plotly object
+print.plotly_hash       Print a plotly object
+signup                  Create a new plotly account.
+style                   Modify trace(s)
+subplot                 View multiple plots in a single view
+toRGB                   Convert R colours to RGBA hexadecimal colour
+                        values
+to_basic                Convert a geom to a "basic" geom.
+wind                    Wind data

@@ -1,0 +1,11 @@
+dml_docx	dml_docx
+dml_pptx	dml_pptx
+dml_xlsx	dml_xlsx
+dsvg	dsvg
+dsvg_view	dsvg_view
+rvg_tracer_off	rvg_tracer_off
+rvg_tracer_on	rvg_tracer_on
+set_attr	set_attr
+write_docx	write_docx
+write_pptx	write_pptx
+write_xlsx	write_xlsx

@@ -1,0 +1,6 @@
+font_family_exists	font_family_exists
+raster_str	raster_str
+raster_view	raster_str
+raster_write	raster_write
+str_extents	str_extents
+str_metrics	str_metrics

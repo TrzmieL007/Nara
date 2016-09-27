@@ -1,0 +1,5 @@
+font_family_exists      Check if font family exists.
+raster_str              Draw/preview a raster into a string
+raster_write            Draw/preview a raster to a png file
+str_extents             Compute string extents.
+str_metrics             Get font metrics for a string.
