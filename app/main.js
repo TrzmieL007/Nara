@@ -11,7 +11,7 @@ const fs = require('fs');
 // console.log(app.getVersion());
 
 var errorLogging = function(error,logname,callback) {
-    var logsDir = path.join("C:","logs");
+    var logsDir = path.join(app.getAppPath(),"logs");
     fs.stat(logsDir,function(e,s){
         if(e || !s.isDirectory()) fs.mkdirSync(logsDir);
         logname = logname || "squirrelCommands.log";
@@ -65,7 +65,7 @@ var handleStartupEvent = function() {
             var appdata = path.resolve(process.env.APPDATA);
             var menuStart = path.resolve(appdata,'Microsoft','Windows','Start Menu','Programs');
             var callback = function(){
-                fs.stat(path.resolve(mencuStart,'Electron.lnk'),function(error,stats){
+                fs.stat(path.resolve(menuStart,'Electron.lnk'),function(error,stats){
                     errorLogging(error+"\n"+JSON.stringify(stats,null,4),'log.txt');
                     if(error){
                         ws.create(path.join(menuStart,linkName),{
@@ -79,7 +79,7 @@ var handleStartupEvent = function() {
                             else app.quit();
                         });
                     }else{
-                        fs.rename(path.resolve(mencuStart,'Electron.lnk'),path.join(mencuStart,linkName),function(err){
+                        fs.rename(path.resolve(menuStart,'Electron.lnk'),path.join(menuStart,linkName),function(err){
                             if(err) errorLogging(err,"error.log");
                             errorLogging("renaming\n"+JSON.stringify(err,null,4),'log.txt');
                             callback();
@@ -111,10 +111,10 @@ var handleStartupEvent = function() {
             });
         });
     };
-    var installRAttempt = function installRAttempt() {
+    /*var installRAttempt = function installRAttempt() {
         var installR = function () {
             var rPath = path.resolve(__dirname, 'R');
-            var arguments = ['/VERYSILENT', '/DIR="' + rPath + '"', '/COMPONENTS="main"'];//,' + (process.arch.match(/64/) ? 'x64' : 'i386') + '"'];
+            var arguments = ['/VERYSILENT', '/DIR="' + rPath + '"', '/COMPONENTS="main,' + (process.arch.match(/64/) ? 'x64' : 'i386') + '"'];
             errorLogging('installation of R "' + path.resolve(rPath, 'R-3.3.1-win.exe') + ' ' + arguments.join(' ') + '"', 'r.txt');
             var installR = spawn(path.resolve(rPath, 'R-3.3.1-win.exe')+' '+arguments.join(' '),[], {detached: true, stdio: 'ignore'});
 
@@ -137,7 +137,7 @@ var handleStartupEvent = function() {
             errorLogging("Excellent! No R detected\n"+JSON.stringify(e,null,4),'r.txt');
             installR();
         }
-    };
+    };*/
     switch(squirrelCommand){
         case '--squirrel-install':
             // Optionally do things such as:
@@ -146,7 +146,7 @@ var handleStartupEvent = function() {
             // - Add your .exe to the PATH
             // - Write to the registry for things like file associations and
             //   explorer context menus
-            installRAttempt();
+            //installRAttempt();
             createShortcuts();
             return true;
         case '--squirrel-updated':
@@ -213,7 +213,7 @@ var handleStartupEvent = function() {
             return true;
         case '--squirrel-firstrun':
             errorLogging('First run action started');
-            installRAttempt();
+            //installRAttempt();
             errorLogging('First run action finished');
             return false;
     }
@@ -223,17 +223,18 @@ if(handleStartupEvent()){
     return;
 }
 
-var Rprocess = require('child_process').spawn(path.join(__dirname,'R','bin','R.exe'),['--vanilla']);
+var Rprocess = require('child_process').spawn(path.join(__dirname,'R','bin','R.exe'),['--vanilla'],{env:{JAVA_HOME:'C:\\Program Files\\Java\\jre1.8.0_101'},shell:true});
 Rprocess.stdin.setEncoding('utf-8');
 Rprocess.stdout.on('data',function(data){
     console.log('R: ',data.toString());
 });
-Rprocess.stderr.on('data',function(data){
-    console.log('(error) R: ',data.toString());
-});
+// Rprocess.stderr.on('data',function(data){
+//     errorLogging('(error) R: '+data.toString(),"r.txt");
+// });
 Rprocess.on('close',function(code){
-    console.log('R ended with code: '+code);
+    errorLogging('R ended with code: '+code,"r.txt");
 });
+console.log('PID: ',Rprocess.pid);
 var IanApp = path.resolve(__dirname,'R','IanApp');
 
 var BrowserWindow = electron.BrowserWindow;
@@ -277,24 +278,27 @@ app.on('ready', function(){
     ));
 
     // and load the index.html of the app.
-    mainWindow.loadURL('http://localhost:8888/');
-
+    // mainWindow.loadURL('http://localhost:6111/');
+    mainWindow.loadURL('file://'+__dirname+'/views/loading.html');
     var shinyServer = require('net').createServer();
     var port = 6111;
+    console.log('PID _1: ',Rprocess.pid,shinyServer.address());
     var checkThePort = function checkThePort(){
+        console.log('PID _2: ',Rprocess.pid,shinyServer.address());
         shinyServer.listen(port,function(err){
+            console.log('PID _2a: ',Rprocess.pid,shinyServer.address(),err);
             if(!err){
                 shinyServer.once('close', function () {
-                    console.log('http://localhost:'+port+'/');
+                    console.log(port);
                     var toWrite = "shiny::runApp(\""+IanApp.replace(new RegExp("([^\\"+path.sep+"]+)(\\"+path.sep+")","g"),"$1"+path.sep+"$2")+"\",port="+port+")\n";
-                    console.log(toWrite);
                     Rprocess.stdin.write(toWrite);
-                    mainWindow.loadURL('http://localhost:'+port+'/');
+                    setTimeout(function(){ mainWindow.loadURL('http://localhost:'+port+'/'); }, 2048);
                 });
                 shinyServer.close();
             }
         });
         shinyServer.on('error',function(err){
+            console.log('PID _2b: ',Rprocess.pid,shinyServer.address(),err.code);
             if(err.code == 'EADDRINUSE'){
                 console.log('Address in use, retrying...');
                 shinyServer.once('close', function () {
@@ -316,9 +320,9 @@ app.on('ready', function(){
         // Dereference the window object, usually you would store windows
         // in an array if your app supports multi windows, this is the time
         // when you should delete the corresponding element.
-        Rprocess.stdin.write("q()\n");
         mainWindow = null;
     });
+
     mainWindow.once('ready-to-show', function(){
         mainWindow.show();
         checkThePort();
@@ -480,4 +484,10 @@ app.on('ready', function(){
     Menu.setApplicationMenu(menu);
 });
 
-ipc.on('close-main-window',function(){ app.quit(); });
+app.once('before-quit',function(e){
+    require('child_process').spawn("taskkill", ["/pid", Rprocess.pid, "/f", "/t"],{detached:true});
+});
+
+ipc.on('close-main-window',function(){
+    setTimeout(app.quit,512);
+});

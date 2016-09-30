@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Loading</title>
+    <style type="text/css">
+        html {
+            background-color: #003175;
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body>
+    <h1 id="load">Loading<span id="dots"></span></h1>
+    <script type="text/javascript">
+        var interval;
+        var dotsCount = 0;
+        (function setLoading(){
+            var load = document.getElementById("load");
+            var dots = document.getElementById("dots");
+            load.style.position = "fixed";
+            load.style.marginTop = "-.5em";
+            load.style.top = ((window.innerHeight / 2) - (load.clientHeight / 2)) + "px";
+            load.style.left = ((window.innerWidth / 2) - (load.clientWidth / 2)) + "px";
+            load.style.transition = "transition: all 2s";
+            interval = setInterval(function(){
+                if(dotsCount%4 == 0) load.style.textShadow = "0 0 4px rgba(255,255,255,"+(load.style.textShadow.match(/0\)/)?"1":"0")+")";
+                ++dotsCount;
+                dots.innerText = '';
+                for(var i = 0; i < dotsCount%4; ++i) dots.innerText += '.';
+            },512);
+            document.body.onbeforeunload = function(){ clearInterval(interval); }
+        })();
+    </script>
+</body>
+</html>
