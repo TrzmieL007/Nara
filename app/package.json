@@ -18,5 +18,5 @@
     "minHeight": 600,
     "title": "Do-IT Profiler Statistics engine for Desktop"
   },
-  "updateServerHost": "http://desktopupdateserver.doitprofiler.net"
+  "updateServerHost": "http://localhost:8080"
 }

@@ -5,7 +5,7 @@
     <title>Update</title>
     <script type="text/javascript" src="../js/ajax.js"></script>
     <style type="text/css">
-        body {
+        body, html {
             background: transparent;
             margin: 0;
             padding: 0;
@@ -16,6 +16,7 @@
             background: #cbcbcb;
             line-height: 1.6em;
             margin: .5em;
+            cursor: pointer;
         }
         h1 {
             font-size: 2em;
@@ -55,24 +56,37 @@
                 null,
                 function(response,status,resdyState){
                     if(status == 200){
-                        // console.log('updateAvailable');
-                        title.innerHTML = "An update is available";
-                        subtitle.innerHTML = "Do you want to download an update?<br/>The application will download the update, quit and install the update.<br/>";
-                        var buttons = subtitle.appendChild(document.createElement('center'));
-                        var yes = buttons.appendChild(document.createElement('button'));
-                        var no = buttons.appendChild(document.createElement('button'));
-                        yes.onclick = function(){
-                            var ipc = require('electron').ipcRenderer;
-                            ipc.send('updateApp',JSON.parse(response).url);
-                            ipc.on('askingForUpdate',function(event){
-                                window.close();
+                        var res = JSON.parse(response);
+                        if(res.message){
+                            require('electron').remote.dialog.showMessageBox({
+                                type: 'info',
+                                buttons: ["Ok"],
+                                defaultId: 0,
+                                title: res.message.title,
+                                message: res.message.body
                             });
-                        };
-                        yes.innerText = "YES";
-                        no.onclick = function(){
                             window.close();
-                        };
-                        no.innerText = "NO";
+                        }
+                        if(res.url) {
+                            // console.log('updateAvailable');
+                            title.innerHTML = "An update is available";
+                            subtitle.innerHTML = "Do you want to download an update?<br/>The application will download the update, quit and install the update.<br/>";
+                            var buttons = subtitle.appendChild(document.createElement('center'));
+                            var yes = buttons.appendChild(document.createElement('button'));
+                            var no = buttons.appendChild(document.createElement('button'));
+                            yes.onclick = function () {
+                                var ipc = require('electron').ipcRenderer;
+                                ipc.send('updateApp', res.url);
+                                ipc.on('askingForUpdate', function (event) {
+                                    window.close();
+                                });
+                            };
+                            yes.innerText = "YES";
+                            no.onclick = function () {
+                                window.close();
+                            };
+                            no.innerText = "NO";
+                        }
                     }else if(status == 204){
                         // console.log('noUpdateAvailable');
                         title.innerHTML = "Version up to date";
@@ -85,6 +99,27 @@
                         subtitle.innerHTML = "An error occured. Please, try again later.";
                     }
                 });
+    }
+    function renderQuestion(url){
+        var title = document.getElementById('title');
+        var subtitle = document.getElementById('subtitle');
+        title.innerHTML = "An update is available";
+        subtitle.innerHTML = "Do you want to download an update?<br/>The application will download the update, quit and install the update.<br/>";
+        var buttons = subtitle.appendChild(document.createElement('center'));
+        var yes = buttons.appendChild(document.createElement('button'));
+        var no = buttons.appendChild(document.createElement('button'));
+        yes.onclick = function(){
+            var ipc = require('electron').ipcRenderer;
+            ipc.send('updateApp',url);
+            ipc.on('askingForUpdate',function(event){
+                window.close();
+            });
+        };
+        yes.innerText = "YES";
+        no.onclick = function(){
+            window.close();
+        };
+        no.innerText = "NO";
     }
 </script>
 </body>

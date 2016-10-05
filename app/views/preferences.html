@@ -5,6 +5,7 @@
     <title>Preferences Panel</title>
     <script type="text/javascript">
         var prefs = {};
+        const dialog = require('electron').remote.dialog;
         function initialize(params){
             console.log(params);
             var content = document.getElementById('content');
@@ -75,6 +76,49 @@
                         });
                         p.fields.push(select);
                         break;
+                    case "selectfile":
+                    case "selectdir":
+                        panel.appendChild(document.createElement('strong')).innerHTML = option.label;
+                        panel.appendChild(document.createElement('br'));
+                        panel.appendChild(document.createElement('label')).innerHTML = option.description;
+                        panel.appendChild(document.createElement('br'));
+                        var field = panel.appendChild(document.createElement('input'));
+                        var choseBt = panel.appendChild(document.createElement('button'));
+                        var clearBt = panel.appendChild(document.createElement('button'));
+                        field.type = "text";
+                        field.readOnly = "true";
+                        field.onclick = function(e){
+                            choseBt.click(e);
+                        };
+                        field.placeholder = option.placeholder;
+                        field.value = option.value || option.default || '';
+                        choseBt.innerHTML = option.buttonLabel || "Chose a "+(option.type.match(/dir$/i)?"Dir":"File");
+                        choseBt.onclick = function(e){
+                            var properties = [option.type.match(/dir$/i)?"openDirectory":"openFile"];
+                            if(option.createDir) properties.push("createDirectory");
+                            if(option.showHidden) properties.push("showHiddenFiles");
+                            dialog.showOpenDialog({
+                                title: option.title,
+                                defaultPath: option.value || option.defaultPath,
+                                buttonLabel: option.buttonLabel,
+                                filters: option.filters,
+                                properties: properties
+                            },function(selected){
+                                if(!selected) return;
+                                field.value = Array.isArray(selected) ? selected[0] : selected;
+                                clearBt.style.opacity = field.value ? 1 : 0;
+                            });
+                        };
+                        clearBt.innerHTML = 'X';
+                        clearBt.title = 'clear';
+                        clearBt.classList.add('clear');
+                        clearBt.style.opacity = field.value ? 1 : 0;
+                        clearBt.onclick = function(){
+                            field.value = '';
+                            clearBt.style.opacity = 0;
+                        };
+                        p.fields.push(field);
+                        break;
                     default:
                         content.removeChild(panel);
                         delete prefs[option.name];
@@ -108,6 +152,8 @@
                         });
                         break;
                     case 'select':
+                    case 'selectdir':
+                    case 'selectfile':
                         p[key] = prefs[key].fields[0].value;
                         break;
                     default: return p;
@@ -140,6 +186,10 @@
                             break;
                         case 'select':
                             pref.fields[0].value = pref.default || null;
+                            break;
+                        case 'selectdir':
+                        case 'selectfile':
+                            pref.fields[0].value = pref.default || '';
                     }
                 });
             });
@@ -174,6 +224,16 @@
             border-radius: 4px;
             background: #cbcbcb;
             line-height: 1.6em;
+            cursor: pointer;
+        }
+        button.clear {
+            font-size: .5em;
+            margin-left: 8px;
+            border-color: #ff6666;
+            background: #ffcbcb;
+            color: #cb0000;
+            opacity: 0;
+            transition: opacity 1s;
         }
         #content {
             overflow: auto;
@@ -200,6 +260,18 @@
         strong {
             font-size: 1.2em;
             line-height: 1.4em;
+        }
+        .selectdir input {
+            width: 303px;
+            margin-right: 8px;
+            background: rgba(255,255,255,.16);
+            border: 1px solid #aaaaaa;
+            padding: 0 4px;
+            line-height: 1.5em;
+        }
+        .selectdir label {
+            font-size: 1em;
+            font-weight: bold;
         }
     </style>
 </head>

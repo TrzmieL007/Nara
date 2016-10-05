@@ -223,18 +223,6 @@ if(handleStartupEvent()){
     return;
 }
 
-var Rprocess = require('child_process').spawn(path.join(__dirname,'R','bin','R.exe'),['--vanilla'],{env:{JAVA_HOME:'C:\\Program Files\\Java\\jre1.8.0_101'},shell:true});
-Rprocess.stdin.setEncoding('utf-8');
-Rprocess.stdout.on('data',function(data){
-    console.log('R: ',data.toString());
-});
-// Rprocess.stderr.on('data',function(data){
-//     errorLogging('(error) R: '+data.toString(),"r.txt");
-// });
-Rprocess.on('close',function(code){
-    errorLogging('R ended with code: '+code,"r.txt");
-});
-console.log('PID: ',Rprocess.pid);
 var IanApp = path.resolve(__dirname,'R','IanApp');
 
 var BrowserWindow = electron.BrowserWindow;
@@ -264,6 +252,39 @@ if(process.platform == 'darwin'){
 }else if(process.platform == 'win32'){
     app.setAppUserModelId(packageJSON.productName);
 }
+const properties = require('./properties')();
+
+const shouldQuit = app.makeSingleInstance(function(commandLine, workingDirectory){
+    // Someone tried to run a second instance, we should focus our window.
+    if(mainWindow){
+        if(mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.focus();
+    }
+});
+if(shouldQuit){
+    app.quit()
+}
+var Rprocess = require('child_process').spawn(
+    path.join(__dirname,'R','bin','R.exe'),
+    ['--vanilla'],
+    {
+        shell: true,
+        env: { JAVA_HOME : properties.getParam('JAVA_HOME') }
+    }
+    );
+Rprocess.stdin.setEncoding('utf-8');
+if(config.dev) {
+    // Rprocess.stdout.on('data', function (data) {
+    //     console.log('R: ', data.toString());
+    // });
+    // Rprocess.stderr.on('data', function (data) {
+    //     console.log('(error) R: ', data.toString());
+    // });
+    // Rprocess.on('close', function (code) {
+    //     console.log('R ended with code: ', code);
+    // });
+    // console.log('PID: ', Rprocess.pid);
+}
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 app.on('ready', function(){
@@ -282,11 +303,11 @@ app.on('ready', function(){
     mainWindow.loadURL('file://'+__dirname+'/views/loading.html');
     var shinyServer = require('net').createServer();
     var port = 6111;
-    console.log('PID _1: ',Rprocess.pid,shinyServer.address());
+    // console.log('PID _1: ',Rprocess.pid,shinyServer.address());
     var checkThePort = function checkThePort(){
-        console.log('PID _2: ',Rprocess.pid,shinyServer.address());
+        // console.log('PID _2: ',Rprocess.pid,shinyServer.address());
         shinyServer.listen(port,function(err){
-            console.log('PID _2a: ',Rprocess.pid,shinyServer.address(),err);
+            // console.log('PID _2a: ',Rprocess.pid,shinyServer.address(),err);
             if(!err){
                 shinyServer.once('close', function () {
                     console.log(port);
@@ -298,7 +319,7 @@ app.on('ready', function(){
             }
         });
         shinyServer.on('error',function(err){
-            console.log('PID _2b: ',Rprocess.pid,shinyServer.address(),err.code);
+            // console.log('PID _2b: ',Rprocess.pid,shinyServer.address(),err.code);
             if(err.code == 'EADDRINUSE'){
                 console.log('Address in use, retrying...');
                 shinyServer.once('close', function () {
@@ -352,33 +373,78 @@ app.on('ready', function(){
     });
 
     ipc.on('savePreferences',function(event,prefs){
-        fs.writeFile('properties.json',JSON.stringify(prefs,null,4),'utf8',function(error){
-            if(error){
-                event.sender.send('errorSavingPrefs',error);
-            }else{
-                event.sender.send('successSavingPrefs');
-            }
-        });
+        properties.saveParams(prefs,event.sender);
     });
     ipc.on('restoreDefaultPreferences',function(event){
-        fs.unlink('properties.json',function(error){
-            if(error){
-                event.sender.send('errorRestoringPrefs',error);
-            }else{
-                event.sender.send('successRestoringPrefs');
-            }
-        });
+        properties.restoreDefaults(event.sender);
     });
+    var updatePref = parseInt(properties.getParam('autoUpdate'));   // 0 - auto, 1 - semi, 2 - manual
 
     autoUpdater.on('error',function(error){
         errorLogging("UPDATING ERROR: "+error,"updateErrors.log");
     });
     // autoUpdater.on('checking-for-update',function(){ });
-    // autoUpdater.on('update-available',function(){ });
-    // autoUpdater.on('update-not-available',function(){ });
+    if(updatePref < 2){
+        var updateAddress = require('./package.json').updateServerHost // http://desktopupdateserver.doitprofiler.net
+            +"/updates/latest?v="+require('../package.json').version
+            +"&a="+process.arch+"&p="+process.platform;
+        (updateAddress.match(/^https/) ? require('https') : require('http')).get(updateAddress, function(res){
+            console.log('statusCode:',res.statusCode);
+            if(res.statusCode !== 200) return;
+            var myBuff = '';
+            var charset = res.headers['content-type'].match(/(^.*charset=)(.+$)/) ? (res.headers['content-type'].replace(/(^.*charset=)(.+$)/, "$2") || 'utf-8').replace('-', '') : 'utf8';
+            res.setEncoding(charset).on('data', function(d){ myBuff += d; });
+            res.on('end', function(){
+                var resultObject;
+                try{
+                    resultObject = JSON.parse(myBuff);
+                }catch(e){
+                    resultObject = myBuff;
+                }
+                if(resultObject.url && updatePref == 1) {
+                    var qWindow = new BrowserWindow({
+                        icon: path.resolve(__dirname, "icon.png"),
+                        width: 512,
+                        height: 256,
+                        center: true,
+                        title: "Update",
+                        show: false,
+                        parent: mainWindow,
+                        modal: true,
+                        frame: false
+                    });
+                    qWindow.loadURL("file://" + __dirname + "/views/update.html");
+                    qWindow.once('ready-to-show', function () {
+                        qWindow.show();
+                        qWindow.webContents.executeJavaScript("renderQuestion('" + resultObject.url + "');");
+                    });
+                    qWindow.on('closed', function () {
+                        qWindow = null;
+                    });
+                    return;
+                }
+                if(resultObject.url && updatePref == 0){
+                    return console.log('automatic update fired on url: ',resultObject.url);
+                    autoUpdater.setFeedURL(resultObject.url);
+                    return autoUpdater.checkForUpdates();
+                }
+                if(resultObject.message){
+                    return require('electron').dialog.showMessageBox(mainWindow,{
+                        type: 'info',
+                        buttons: ["Ok"],
+                        defaultId: 0,
+                        title: resultObject.message.title,
+                        message: resultObject.message.body
+                    });
+                }
+            });
+        }).on('error', function (e) {
+            console.log(e.message);
+        });
+    }
+
     autoUpdater.on('update-downloaded',function(){
-        process.log(JSON.stringify(autoUpdater,null,4));
-        autoUpdater.quitAndInstall();
+        return autoUpdater.quitAndInstall();
     });
 
     var Menu = electron.Menu;
@@ -411,6 +477,7 @@ app.on('ready', function(){
                 qWindow.webContents.executeJavaScript("getUpdate("+JSON.stringify(params)+");");
             });
             qWindow.on('closed', function(){ qWindow = null; });
+            // qWindow.webContents.openDevTools({ detach : true });
         },
         label: 'Update'
     }));
@@ -434,51 +501,12 @@ app.on('ready', function(){
             prefWindow.loadURL("file://" + __dirname + "/views/preferences.html");
             prefWindow.once('ready-to-show', function () {
                 prefWindow.show();
-                var params = [
-                    {
-                        label: "Auto update",
-                        name: "autoUpdate",
-                        type: "radio",
-                        options: [
-                            "<b>Automatic update</b> - check for update on app start, and update if available,",
-                            "<b>Semi automatic update</b> - check for update on app start, but let me chose if I want to update,",
-                            "<b>Manual</b> - do not check for updates on app start."
-                        ],
-                        default: 2
-                    },
-                    {
-                        label: "Sample option with checkbox",
-                        name: "chkbox",
-                        type: "checkbox",
-                        default: false
-                    },
-                    {
-                        label: "Sample option with selectbox",
-                        name: "selectOpt",
-                        type: "select",
-                        options: [
-                            "Option 1",
-                            "Option 2",
-                            "Option 3",
-                            "Option 4"
-                        ],
-                        default: 2
-                    }
-                ];
-                try{
-                    var values = JSON.parse(fs.readFileSync('properties.json','utf8'));
-                    params.map(function(e){
-                        if(values.hasOwnProperty(e.name)) e.value = values[e.name];
-                        return e;
-                    });
-                }catch(e){
-                    //console.log(e);
-                }
-                prefWindow.webContents.executeJavaScript("initialize(" + JSON.stringify(params) + ");");
+                prefWindow.webContents.executeJavaScript("initialize(" + JSON.stringify(properties.params) + ");");
             });
             prefWindow.on('closed', function () {
                 prefWindow = null;
             });
+            // prefWindow.webContents.openDevTools({ detach : true });
         }
     }));
     Menu.setApplicationMenu(menu);
