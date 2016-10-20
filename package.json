@@ -1,7 +1,7 @@
 {
   "name": "nara",
   "productName": "DoIT_ProfilerStats",
-  "version": "0.0.1",
+  "version": "0.1.1",
   "description": "Do-IT Profiler Statistic engine for Desktop using Electron and Shiny",
   "main": "app/main.js",
   "scripts": {
@@ -17,7 +17,7 @@
   ],
   "author": "Do-IT Solutions",
   "license": "ISC",
-  "ignore": "(^/node_modules)|(^/build)|(^/dist$)|(^/package(?!\\.json))|(\\.idea$)|(\\.vscode$)|(Thumbs\\.db)|(\\.DS_Store)|(\\.Trashes)|(Gruntfile\\.js)",
+  "ignore": "(^/node_modules)|(^/build)|(^/dist$)|(^/package(?!\\.json))|(\\.idea$)|(\\.vscode$)|(Thumbs\\.db)|(\\.DS_Store)|(\\.Trashes)|(Gruntfile\\.js)|(^/tests$)",
   "directories": {
     "packages": "./dist",
     "installers": "./dist/install"

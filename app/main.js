@@ -6,6 +6,7 @@ var app = electron.app;
 var packageJSON = require('./package.json');
 const path = require('path');
 const fs = require('fs');
+var firstRun;
 
 // console.log(app.getAppPath());
 // console.log(app.getVersion());
@@ -111,33 +112,6 @@ var handleStartupEvent = function() {
             });
         });
     };
-    /*var installRAttempt = function installRAttempt() {
-        var installR = function () {
-            var rPath = path.resolve(__dirname, 'R');
-            var arguments = ['/VERYSILENT', '/DIR="' + rPath + '"', '/COMPONENTS="main,' + (process.arch.match(/64/) ? 'x64' : 'i386') + '"'];
-            errorLogging('installation of R "' + path.resolve(rPath, 'R-3.3.1-win.exe') + ' ' + arguments.join(' ') + '"', 'r.txt');
-            var installR = spawn(path.resolve(rPath, 'R-3.3.1-win.exe')+' '+arguments.join(' '),[], {detached: true, stdio: 'ignore'});
-
-            installR.on('close', function (code) {
-                errorLogging('installation of R returned code: ' + code, 'r.txt');
-                fs.writeFile(path.join(rPath,'rPath'),path.resolve(rPath,'bin','r'),'utf8',function(){});
-            });
-        };
-        try {
-            var chkR = spawn('r', ["/?"]);
-            chkR.on('close', function (code) {
-                errorLogging('r /? returned code: ' + code,'r.txt');
-                if(code != 0){
-                    fs.readdir(path.resolve(__dirname, 'R'),function(err,files){
-                        if(err || files.length < 2) installR();
-                    });
-                }
-            });
-        }catch (e) {
-            errorLogging("Excellent! No R detected\n"+JSON.stringify(e,null,4),'r.txt');
-            installR();
-        }
-    };*/
     switch(squirrelCommand){
         case '--squirrel-install':
             // Optionally do things such as:
@@ -146,45 +120,11 @@ var handleStartupEvent = function() {
             // - Add your .exe to the PATH
             // - Write to the registry for things like file associations and
             //   explorer context menus
-            //installRAttempt();
             createShortcuts();
             return true;
         case '--squirrel-updated':
             // After update is done
-            // var filename = path.resolve(path.dirname(updateDotExe),'data.txt');
-            // errorLogging("filename for source filename = "+filename,'log.txt');
-            // var destination = path.resolve(__dirname,'data');
-            // errorLogging("destination = "+destination,'log.txt');
-            // fs.mkdirSync(destination);
-            // fs.stat(filename,function(err,stats){
-            //     if(err){
-            //         errorLogging("Error finding data folder - "+err,"error.log");
-            //         removeShortcuts(createShortcuts);
-            //     }
-            //     fs.readFile(filename,'utf8','r',function(error,source){
-            //         if(error)
-            //             errorLogging(error,"error.log",app.quit);
-            //         else {
-            //             source = source.split("\n").reverse()[0].trim();
-            //             errorLogging("source = "+source,'log.txt');
-            //             var execCommand = 'xcopy '+source+' '+destination+' /c /e /s /k /r /h /y';
-            //             errorLogging(execCommand,'log.txt',function(){
-            //                 var copyProcess = spawn('xcopy', [source,destination,'/c','/e','/s','/k','/r','/h','/y'], { detached: true });
-            //                 saveDataLoc(filename);
-            //                 removeShortcuts(createShortcuts);
-            //                 copyProcess.stdout.on('data',function(data){
-            //                     errorLogging('stdout from xcopy: '+data,'copy.log');
-            //                 });
-            //                 copyProcess.stderr.on('data',function(data){
-            //                     errorLogging('stderr from xcopy: '+data,'copy.log');
-            //                 });
-            //                 copyProcess.on('close',function(code) {
-            //                     errorLogging('xcopy exit code: '+code,'copy.log');
-            //                 });
-            //             });
-            //         }
-            //     });
-            // });
+            removeShortcuts(createShortcuts);
             return true;
         case '--squirrel-uninstall':
             // Undo anything you did in the --squirrel-install and
@@ -195,9 +135,6 @@ var handleStartupEvent = function() {
                 var del = spawn('DEL', ['/F', '/S', '/Q', p.map(function (part) {
                     return (part == 'Local' ? 'Roaming' : part)
                 }).join(path.sep)], {detached: true});
-                // require('rimraf')(p.map(function(part) {
-                //     return (part == 'Local' ? 'Roaming' : part)
-                // }).join('\\'), function(e){ return e; });
                 del.on('close', function (code) {
                     spawn('RD', ['/S', '/Q'], {detached: true});
                     removeShortcuts();
@@ -212,9 +149,7 @@ var handleStartupEvent = function() {
             // --squirrel-updated
             return true;
         case '--squirrel-firstrun':
-            errorLogging('First run action started');
-            //installRAttempt();
-            errorLogging('First run action finished');
+            firstRun = true;
             return false;
     }
 };
@@ -273,18 +208,6 @@ var Rprocess = require('child_process').spawn(
     }
     );
 Rprocess.stdin.setEncoding('utf-8');
-if(config.dev) {
-    // Rprocess.stdout.on('data', function (data) {
-    //     console.log('R: ', data.toString());
-    // });
-    // Rprocess.stderr.on('data', function (data) {
-    //     console.log('(error) R: ', data.toString());
-    // });
-    // Rprocess.on('close', function (code) {
-    //     console.log('R ended with code: ', code);
-    // });
-    // console.log('PID: ', Rprocess.pid);
-}
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 app.on('ready', function(){
@@ -298,28 +221,73 @@ app.on('ready', function(){
         }
     ));
 
+    var openPreferences = function() {
+        var mainBounds = mainWindow.getBounds();
+        var prefWindow = new BrowserWindow({
+            width: mainBounds.width - 64,
+            height: mainBounds.height - 96,
+            x: mainBounds.x + 32,
+            y: mainBounds.y + 64,
+            icon: path.resolve(__dirname, "icon.png"),
+            center: true,
+            title: "Preferences",
+            show: false,
+            parent: mainWindow,
+            modal: true,
+            frame: false
+        });
+        prefWindow.loadURL("file://" + __dirname + "/views/preferences.html");
+        prefWindow.once('ready-to-show', function () {
+            prefWindow.show();
+            prefWindow.webContents.executeJavaScript("initialize(" + JSON.stringify(properties.params) + ");");
+        });
+        prefWindow.on('closed', function () {
+            console.log(JSON.stringify(arguments,null,4));
+            prefWindow = null;
+        });
+        // prefWindow.webContents.openDevTools({ detach : true });
+    };
     // and load the index.html of the app.
-    // mainWindow.loadURL('http://localhost:6111/');
     mainWindow.loadURL('file://'+__dirname+'/views/loading.html');
-    var shinyServer = require('net').createServer();
+    var shinyServer;
     var port = 6111;
-    // console.log('PID _1: ',Rprocess.pid,shinyServer.address());
     var checkThePort = function checkThePort(){
-        // console.log('PID _2: ',Rprocess.pid,shinyServer.address());
-        shinyServer.listen(port,function(err){
-            // console.log('PID _2a: ',Rprocess.pid,shinyServer.address(),err);
+        shinyServer = require('net').createServer();
+        shinyServer.listen(port,'localhost',function(err){
             if(!err){
                 shinyServer.once('close', function () {
                     console.log(port);
                     var toWrite = "shiny::runApp(\""+IanApp.replace(new RegExp("([^\\"+path.sep+"]+)(\\"+path.sep+")","g"),"$1"+path.sep+"$2")+"\",port="+port+")\n";
                     Rprocess.stdin.write(toWrite);
-                    setTimeout(function(){ mainWindow.loadURL('http://localhost:'+port+'/'); }, 2048);
+                    setTimeout(function(){
+                        mainWindow.loadURL('http://localhost:'+port+'/');
+                        mainWindow.webContents.once('did-finish-load',function(){
+                            mainWindow.webContents.once('found-in-page',function(event,result){
+                                if(result.matches){
+                                    if(electron.dialog.showMessageBox(mainWindow,{
+                                        type: 'error',
+                                        buttons: ["Ok","Open preferences"],
+                                        defaultId: 0,
+                                        title: 'Java error',
+                                        message: 'Could not load package rJava, it might be caused by invalid or not set JAVA_HOME environment wariable. Please set it in your system or in the preferences panel (File -> Preferences).'
+                                    }) == 1){
+                                        return openPreferences();
+                                    }
+                                    return 0;
+                                }
+                            });
+                            mainWindow.webContents.findInPage("ERROR: package 'rJava' could not be loaded");
+                        });
+                        mainWindow.webContents.once('did-get-response-details',function(){
+                            console.log('did-get-response-details',arguments[4]);
+                        });
+                        // mainWindow.webContents.once('dom-ready',function(){ });
+                    }, 2048);
                 });
                 shinyServer.close();
             }
         });
         shinyServer.on('error',function(err){
-            // console.log('PID _2b: ',Rprocess.pid,shinyServer.address(),err.code);
             if(err.code == 'EADDRINUSE'){
                 console.log('Address in use, retrying...');
                 shinyServer.once('close', function () {
@@ -373,7 +341,17 @@ app.on('ready', function(){
     });
 
     ipc.on('savePreferences',function(event,prefs){
-        properties.saveParams(prefs,event.sender);
+        properties.saveParams(prefs,event.sender,function(no){
+            if(!electron.dialog.showMessageBox(mainWindow,{
+                    type: 'question',
+                    buttons: ["Yes","No"],
+                    defaultId: 0,
+                    title: 'Restart required',
+                    message: (no || "Some")+" of the changes, you've made, require the app to restart.\nDo you want to restart the app now?"
+                })){
+                return app.relaunch(),app.quit();
+            }
+        });
     });
     ipc.on('restoreDefaultPreferences',function(event){
         properties.restoreDefaults(event.sender);
@@ -384,10 +362,11 @@ app.on('ready', function(){
         errorLogging("UPDATING ERROR: "+error,"updateErrors.log");
     });
     // autoUpdater.on('checking-for-update',function(){ });
-    if(updatePref < 2){
-        var updateAddress = require('./package.json').updateServerHost // http://desktopupdateserver.doitprofiler.net
+    if(updatePref < 2 && !firstRun){
+        var updateAddress = encodeURI(require('./package.json').updateServerHost // http://desktopupdateserver.doitprofiler.net
             +"/updates/latest?v="+require('../package.json').version
-            +"&a="+process.arch+"&p="+process.platform;
+            +"&a="+process.arch+"&p="+process.platform+"&pn="+packageJSON.productName);
+        console.log(updateAddress);
         (updateAddress.match(/^https/) ? require('https') : require('http')).get(updateAddress, function(res){
             console.log('statusCode:',res.statusCode);
             if(res.statusCode !== 200) return;
@@ -424,7 +403,7 @@ app.on('ready', function(){
                     return;
                 }
                 if(resultObject.url && updatePref == 0){
-                    return console.log('automatic update fired on url: ',resultObject.url);
+                    // return console.log('automatic update fired on url: ',resultObject.url);
                     autoUpdater.setFeedURL(resultObject.url);
                     return autoUpdater.checkForUpdates();
                 }
@@ -472,7 +451,8 @@ app.on('ready', function(){
                 var params = {
                     p : process.platform,
                     v : require('../package.json').version,
-                    a : process.arch
+                    a : process.arch,
+                    pn: packageJSON.productName
                 };
                 qWindow.webContents.executeJavaScript("getUpdate("+JSON.stringify(params)+");");
             });
@@ -483,39 +463,22 @@ app.on('ready', function(){
     }));
     menu.items[0].submenu.insert(0,new MenuItem({
         label : "Preferences",
-        click : function() {
-            var mainBounds = mainWindow.getBounds();
-            var prefWindow = new BrowserWindow({
-                width: mainBounds.width - 64,
-                height: mainBounds.height - 96,
-                x: mainBounds.x + 32,
-                y: mainBounds.y + 64,
-                icon: path.resolve(__dirname, "icon.png"),
-                center: true,
-                title: "Preferences",
-                show: false,
-                parent: mainWindow,
-                modal: true,
-                frame: false
-            });
-            prefWindow.loadURL("file://" + __dirname + "/views/preferences.html");
-            prefWindow.once('ready-to-show', function () {
-                prefWindow.show();
-                prefWindow.webContents.executeJavaScript("initialize(" + JSON.stringify(properties.params) + ");");
-            });
-            prefWindow.on('closed', function () {
-                prefWindow = null;
-            });
-            // prefWindow.webContents.openDevTools({ detach : true });
-        }
+        click : openPreferences
     }));
     Menu.setApplicationMenu(menu);
 });
-
+// app.on('before-quit',function(e){ console.log('quitting',e); });
 app.once('before-quit',function(e){
-    require('child_process').spawn("taskkill", ["/pid", Rprocess.pid, "/f", "/t"],{detached:true});
+    // console.log('killer @ work');
+    e.preventDefault ? e.preventDefault() : null;
+    e.stopPropagation ? e.stopPropagation() : null;
+    var killer = require('child_process').spawn("taskkill", ["/pid", Rprocess.pid, "/f", "/t"],{detached:true});
+    killer.on('close',function(code){
+        errorLogging('killer returned code: '+code,'kill.txt');
+        app.quit();
+    });
 });
 
 ipc.on('close-main-window',function(){
-    setTimeout(app.quit,512);
+    app.quit();
 });

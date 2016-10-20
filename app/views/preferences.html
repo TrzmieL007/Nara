@@ -12,7 +12,13 @@
             params.forEach(function(option){
                 var panel = content.appendChild(document.createElement('div'));
                 panel.classList.add(option.type.toLowerCase());
-                var p = prefs[option.name] = { fields : [], type : option.type.toLowerCase(), default : option.default };
+                var p = prefs[option.name] = {
+                    fields : [],
+                    type : option.type.toLowerCase(),
+                    default : option.default,
+                    original : typeof option.value !== 'undefined' ? option.value : option.default,
+                    requireRestart : option.requireRestart
+                };
                 switch(option.type.toLowerCase()){
                     case 'checkbox':
                         var chkbox = panel.appendChild(document.createElement('input'));
@@ -23,6 +29,7 @@
                             chkbox.checked = 'checked';
                         }
                         var label = panel.appendChild(document.createElement('label'));
+                        if(p.requireRestart)panel.appendChild(document.createElement('span')).classList.add('requireRestart');
                         label.innerHTML = option.label;
                         label.onclick = function(){
                             chkbox.checked = !chkbox.checked;
@@ -32,6 +39,7 @@
                     case 'radio':
                         panel.appendChild(document.createElement('hr'));
                         panel.appendChild(document.createElement('strong')).innerHTML = option.label;
+                        if(p.requireRestart)panel.appendChild(document.createElement('span')).classList.add('requireRestart');
                         panel.appendChild(document.createElement('br'));
                         option.options.forEach(function(e,index){
                             var radio = panel.appendChild(document.createElement('input'));
@@ -55,6 +63,7 @@
                         break;
                     case "select":
                         panel.appendChild(document.createElement('strong')).innerHTML = option.label;
+                        if(p.requireRestart)panel.appendChild(document.createElement('span')).classList.add('requireRestart');
                         panel.appendChild(document.createElement('br'));
                         var select = panel.appendChild(document.createElement('select'));
                         var firstOpt = select.appendChild(document.createElement('option'));
@@ -79,6 +88,7 @@
                     case "selectfile":
                     case "selectdir":
                         panel.appendChild(document.createElement('strong')).innerHTML = option.label;
+                        if(p.requireRestart)panel.appendChild(document.createElement('span')).classList.add('requireRestart');
                         panel.appendChild(document.createElement('br'));
                         panel.appendChild(document.createElement('label')).innerHTML = option.description;
                         panel.appendChild(document.createElement('br'));
@@ -158,8 +168,10 @@
                         break;
                     default: return p;
                 }
+                if(prefs[key].requireRestart && p[key] != prefs[key].original)
+                    ++p.requireRestart;
                 return p;
-            },{});
+            },{requireRestart:0});
         }
         function restoreDefaultsPrefs(){
             var ipc = require('electron').ipcRenderer;
@@ -243,6 +255,34 @@
             left: 8px;
             right: 8px;
         }
+        .rr {
+            position: fixed;
+            bottom: 12px;
+            left: 12px;
+        }
+        .rr small {
+            vertical-align: 2px;
+        }
+        .requireRestart {
+            width: 12px;
+            height: 12px;
+            background: #ababab;
+            border-radius: 6px;
+            position: relative;
+            display: inline-block;
+            margin-left: 5px;
+        }
+        .requireRestart:after {
+            content: '';
+            border-style: solid;
+            border-color: transparent;
+            border-width: 3px 6px 3px 0;
+            border-right-color: white;
+            display: inline-block;
+            position: absolute;
+            top: 3px;
+            left: 2px;
+        }
         .checkbox {
             line-height: 1.5em;
             margin: 2px 0;
@@ -279,6 +319,10 @@
     <div class="wrapper">
         <h1>Preferences Panel</h1>
         <div id="content"></div>
+        <div class="rr">
+            <div class="requireRestart"></div>
+            <small>- App restart required after changing the setting</small>
+        </div>
         <span class="buttons">
             <button onClick="savePrefs()">Save</button>
             <button onClick="restoreDefaultsPrefs()">Restore defaults</button>

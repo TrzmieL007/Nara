@@ -28,7 +28,8 @@ function init() {
             title: "Chose JAVA_HOME",
             placeholder: "C:\\Program Files\\Java\\jre#.#.#_###",
             buttonLabel: "Chose folder",
-            defaultPath: process.env.JAVA_HOME || process.env.ProgramFiles
+            defaultPath: process.env.JAVA_HOME || process.env.ProgramFiles,
+            requireRestart: true
         }
     ];
     /*params.push({
@@ -99,8 +100,12 @@ module.exports = function(){
             return params;
         },
         // saves params to file
-        saveParams: function(params,sender){
+        saveParams: function(params,sender,callback){
+            var requireRestart;
             if(params){
+                requireRestart = params.requireRestart;
+                delete params.requireRestart;
+                console.log(params);
                 Object.keys(params).forEach(function(paramName){
                     this.setParam(paramName,params[paramName]);
                 },this);
@@ -112,7 +117,7 @@ module.exports = function(){
             fs.writeFile(paramsFile,JSON.stringify(params,null,4),'utf8',function(error){
                 if(error)
                     return sender ? sender.send('errorSavingPrefs',error) : console.log('errorSavingPrefs',error);
-                return sender ? sender.send('successSavingPrefs') : null;
+                return sender?(sender.send('successSavingPrefs'),requireRestart&&typeof callback == 'function'?callback():null):null;
             });
         },
         // deletes params file restoring defaults at the same time

@@ -1,7 +1,7 @@
 {
   "name": "takabatake-cho",
   "productName": "Do-ITProfilerDesktopStats",
-  "version": "0.0.1",
+  "version": "0.1.1",
   "description": "Do-IT Profiler Statistic engine for Desktop using Electron and Shiny",
   "author": "Do-IT Solutions",
   "homepage": "http://www.doitprofiler.com",
